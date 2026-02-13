@@ -9,7 +9,7 @@ COPY requirements.txt .
 # Install dependencies in a virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt beautifulsoup4
 
 # Runtime stage
 FROM python:3.11-slim
