@@ -9,19 +9,15 @@ ZELENGRAD_LAT = 55.9825
 ZELENGRAD_LON = 37.1814
 
 def get_zelgrad_temperature():
-    """
-    Получение реальной температуры через Open-Meteo API (без API ключа)
-    Open-Meteo — бесплатный API для некоммерческого использования
-    """
+
     try:
-        # Open-Meteo API endpoint для текущей погоды
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
             "latitude": ZELENGRAD_LAT,
             "longitude": ZELENGRAD_LON,
             "current_weather": True,
             "timezone": "Europe/Moscow",
-            "wind_speed_unit": "ms"  # метры в секунду
+            "wind_speed_unit": "ms" 
         }
         
         response = requests.get(url, params=params, timeout=5)
@@ -34,7 +30,6 @@ def get_zelgrad_temperature():
             windspeed = weather['windspeed']
             weather_code = weather.get('weathercode', 0)
             
-            # Коды погоды WMO (упрощенно)
             weather_desc = {
                 0: "Ясно",
                 1: "Преимущественно ясно",
@@ -91,28 +86,8 @@ def home():
             <div style="font-size: 16px; margin: 10px;">
                 Ветер: {weather['windspeed']} м/с
             </div>
-            <p><small>Данные: {weather['source']} (бесплатно, без API ключа)</small></p>
+            <p><small>Данные: {weather['source']}</small></p>
             <p><small>Обновлено: {datetime.datetime.now().strftime('%H:%M:%S')}</small></p>
-            <p><a href="/debug">Debug: сырые данные</a></p>
         </body>
     </html>
     """
-
-@app.route('/debug')
-def debug():
-    """Отладочная страница с сырыми данными от API"""
-    try:
-        url = "https://api.open-meteo.com/v1/forecast"
-        params = {
-            "latitude": ZELENGRAD_LAT,
-            "longitude": ZELENGRAD_LON,
-            "current_weather": True,
-            "timezone": "Europe/Moscow"
-        }
-        response = requests.get(url, params=params)
-        return response.json()
-    except Exception as e:
-        return {"error": str(e)}
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
