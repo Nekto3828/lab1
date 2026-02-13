@@ -1,38 +1,63 @@
 from flask import Flask
+import requests
 import datetime
-import mweather
 
 app = Flask(__name__)
 
+# Координаты Зеленограда (можно найти через любой геокодер)
+ZELENGRAD_LAT = 55.9825
+ZELENGRAD_LON = 37.1814
+
 def get_zelgrad_temperature():
     """
-    Получение температуры через библиотеку mweather (без API ключа)
+    Получение реальной температуры через Open-Meteo API (без API ключа)
+    Open-Meteo — бесплатный API для некоммерческого использования
     """
     try:
-        # Библиотека mweather не требует ключей
-        # Возвращает словарь с данными
-        weather_data = mweather.weather(
-            city="Зеленоград", 
-            output="json", 
-            lang="ru"
-        )
+        # Open-Meteo API endpoint для текущей погоды
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": ZELENGRAD_LAT,
+            "longitude": ZELENGRAD_LON,
+            "current_weather": True,
+            "timezone": "Europe/Moscow",
+            "wind_speed_unit": "ms"  # метры в секунду
+        }
         
-        # Проверяем, что данные корректны
-        if weather_data and 'temp' in weather_data:
-            # Извлекаем числовое значение температуры из строки типа "10°C"
-            temp_str = weather_data['temp']
-            # Оставляем только цифры и точку
-            import re
-            temp_value = re.findall(r"[-+]?\d*\.?\d+", temp_str)[0]
+        response = requests.get(url, params=params, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            weather = data['current_weather']
+            
+            temperature = weather['temperature']
+            windspeed = weather['windspeed']
+            weather_code = weather.get('weathercode', 0)
+            
+            # Коды погоды WMO (упрощенно)
+            weather_desc = {
+                0: "Ясно",
+                1: "Преимущественно ясно",
+                2: "Переменная облачность",
+                3: "Пасмурно",
+                45: "Туман",
+                48: "Изморозь",
+                51: "Легкая морось",
+                61: "Небольшой дождь",
+                63: "Дождь",
+                71: "Небольшой снег",
+                73: "Снег",
+                95: "Гроза"
+            }.get(weather_code, "Разная облачность")
             
             return {
-                'temp': float(temp_value),
-                'weather': weather_data.get('weather', 'Неизвестно'),
-                'response_time': weather_data.get('response-time', 0),
-                'source': 'mweather'
+                'temp': round(temperature, 1),
+                'windspeed': windspeed,
+                'description': weather_desc,
+                'source': 'Open-Meteo'
             }
         else:
-            return {'error': 'Не удалось получить данные от mweather'}
+            return {'error': f'API error: {response.status_code}'}
     except Exception as e:
         return {'error': str(e)}
 
@@ -47,6 +72,7 @@ def home():
             <body style="font-family: Arial; text-align: center; margin-top: 50px;">
                 <h1>🌡️ Ошибка получения данных</h1>
                 <p>{weather['error']}</p>
+                <p><small>Попробуйте обновить страницу позже</small></p>
             </body>
         </html>
         """
@@ -60,14 +86,33 @@ def home():
                 {weather['temp']}°C
             </div>
             <div style="font-size: 24px; margin: 20px; color: #666;">
-                {weather['weather']}
+                {weather['description']}
             </div>
-            <p><small>Данные: {weather['source']} (библиотека-обертка)</small></p>
-            <p><small>Время ответа: {weather['response_time']} сек</small></p>
+            <div style="font-size: 16px; margin: 10px;">
+                Ветер: {weather['windspeed']} м/с
+            </div>
+            <p><small>Данные: {weather['source']} (бесплатно, без API ключа)</small></p>
             <p><small>Обновлено: {datetime.datetime.now().strftime('%H:%M:%S')}</small></p>
+            <p><a href="/debug">Debug: сырые данные</a></p>
         </body>
     </html>
     """
+
+@app.route('/debug')
+def debug():
+    """Отладочная страница с сырыми данными от API"""
+    try:
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": ZELENGRAD_LAT,
+            "longitude": ZELENGRAD_LON,
+            "current_weather": True,
+            "timezone": "Europe/Moscow"
+        }
+        response = requests.get(url, params=params)
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
